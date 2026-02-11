@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#6366f1">
+    <title>配信記録アプリ</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .input-group {
+            margin-bottom: 1rem;
+        }
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+        .input-group input, .input-group select, .input-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            width: 100%;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+        .star-rating {
+            font-size: 2rem;
+            color: #fbbf24;
+            cursor: pointer;
+            user-select: none;
+        }
+        .star-rating span {
+            display: inline-block;
+            margin: 0 2px;
+        }
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: #6b7280;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            color: #6366f1;
+            border-bottom-color: #6366f1;
+        }
+        .calendar-day {
+            padding: 0.75rem;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .calendar-day.has-data {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+        }
+        .calendar-day:hover {
+            transform: scale(1.1);
+        }
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            margin-bottom: 1rem;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #6366f1;
+        }
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+        .hidden {
+            display: none;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 1.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto px-4 py-6 max-w-md">
+        <!-- ヘッダー -->
+        <div class="glass-card p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">📊 配信記録</h1>
+            <p class="text-gray-600">データを記録して、収益を最適化</p>
+        </div>
+
+        <!-- タブナビゲーション -->
+        <div class="glass-card mb-6 overflow-x-auto">
+            <div class="flex">
+                <button class="tab-btn active" onclick="showTab('home')">🏠 ホーム</button>
+                <button class="tab-btn" onclick="showTab('input')">📝 記録</button>
+                <button class="tab-btn" onclick="showTab('calendar')">📅 カレンダー</button>
+                <button class="tab-btn" onclick="showTab('stats')">📈 統計</button>
+            </div>
+        </div>
+
+        <!-- ホーム画面 -->
+        <div id="home-tab" class="tab-content">
+            <div class="glass-card p-6 mb-4">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 今月のサマリー</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-sales">¥0</div>
+                        <div class="stat-label">総売上</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avg-hourly">¥0</div>
+                        <div class="stat-label">平均時給</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-sessions">0</div>
+                        <div class="stat-label">セッション数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avg-customers">0</div>
+                        <div class="stat-label">平均客数</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-6 mb-4">
+                <h3 class="text-lg font-bold text-gray-800 mb-3">💰 売上内訳（円グラフ）</h3>
+                <div class="chart-container">
+                    <canvas id="salesPieChart"></canvas>
+                </div>
+            </div>
+
+            <button class="btn-primary" onclick="showTab('input')">
+                ➕ 新規記録を追加
+            </button>
+        </div>
+
+        <!-- 入力画面 -->
+        <div id="input-tab" class="tab-content hidden">
+            <form id="recordForm" class="glass-card p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📝 新規記録</h2>
+                
+                <!-- 基本情報 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">📅 基本情報</h3>
+                    <div class="input-group">
+                        <label>日付</label>
+                        <input type="date" id="date" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="input-group">
+                            <label>開始時刻</label>
+                            <input type="time" id="startTime" required>
+                        </div>
+                        <div class="input-group">
+                            <label>終了時刻</label>
+                            <input type="time" id="endTime" required>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>デバイス</label>
+                        <select id="device">
+                            <option>PC</option>
+                            <option selected>スマホ</option>
+                            <option>タブレット</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 体調・モチベーション -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">😊 コンディション</h3>
+                    <div class="input-group">
+                        <label>体調自己評価</label>
+                        <div class="star-rating" id="healthRating" onclick="setRating('health', event)">
+                            <span data-value="1">☆</span>
+                            <span data-value="2">☆</span>
+                            <span data-value="3">☆</span>
+                            <span data-value="4">☆</span>
+                            <span data-value="5">☆</span>
+                        </div>
+                        <input type="hidden" id="health" value="3">
+                    </div>
+                    <div class="input-group">
+                        <label>モチベーション自己評価</label>
+                        <div class="star-rating" id="motivationRating" onclick="setRating('motivation', event)">
+                            <span data-value="1">☆</span>
+                            <span data-value="2">☆</span>
+                            <span data-value="3">☆</span>
+                            <span data-value="4">☆</span>
+                            <span data-value="5">☆</span>
+                        </div>
+                        <input type="hidden" id="motivation" value="3">
+                    </div>
+                </div>
+
+                <!-- 客データ -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">👥 客データ</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="input-group">
+                            <label>総客数</label>
+                            <input type="number" id="totalCustomers" min="0" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>コインあり</label>
+                            <input type="number" id="coinUsers" min="0" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>常連客</label>
+                            <input type="number" id="regularCustomers" min="0" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>有料移行</label>
+                            <input type="number" id="paidUsers" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>1000コイン以上客数</label>
+                        <input type="number" id="highSpenders" min="0" value="0">
+                    </div>
+                </div>
+
+                <!-- 売上データ -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">💰 売上データ</h3>
+                    <div class="input-group">
+                        <label>総売上（円）</label>
+                        <input type="number" id="totalSales" min="0" value="0">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="input-group">
+                            <label>入場料</label>
+                            <input type="number" id="entranceFee" min="0" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>チップ</label>
+                            <input type="number" id="tips" min="0" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>特別報酬</label>
+                            <input type="number" id="specialReward" min="0" value="0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 行動ログ -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">📋 行動ログ</h3>
+                    <div class="input-group">
+                        <label>トークテーマ</label>
+                        <input type="text" id="talkTheme" placeholder="例: 天気、趣味">
+                    </div>
+                    <div class="input-group">
+                        <label>営業導線</label>
+                        <select id="salesApproach">
+                            <option>甘め</option>
+                            <option>雑談</option>
+                            <option>直球</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>テンション帯</label>
+                        <select id="tension">
+                            <option>低</option>
+                            <option>中</option>
+                            <option>高</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>成功トークメモ</label>
+                        <textarea id="successMemo" rows="2" placeholder="うまくいった会話内容"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>失敗トークメモ</label>
+                        <textarea id="failureMemo" rows="2" placeholder="改善すべき点"></textarea>
+                    </div>
+                </div>
+
+                <!-- 外部要因 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">🌍 外部要因</h3>
+                    <div class="input-group">
+                        <label>イベント有無</label>
+                        <select id="hasEvent">
+                            <option value="false">なし</option>
+                            <option value="true">あり</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>給料日前後</label>
+                        <select id="payday">
+                            <option>通常</option>
+                            <option>前</option>
+                            <option>後</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">💾 保存する</button>
+            </form>
+        </div>
+
+        <!-- カレンダー画面 -->
+        <div id="calendar-tab" class="tab-content hidden">
+            <div class="glass-card p-6 mb-4">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📅 2026年2月</h2>
+                <div class="grid grid-cols-7 gap-2 mb-4">
+                    <div class="text-center font-bold text-gray-600">日</div>
+                    <div class="text-center font-bold text-gray-600">月</div>
+                    <div class="text-center font-bold text-gray-600">火</div>
+                    <div class="text-center font-bold text-gray-600">水</div>
+                    <div class="text-center font-bold text-gray-600">木</div>
+                    <div class="text-center font-bold text-gray-600">金</div>
+                    <div class="text-center font-bold text-gray-600">土</div>
+                    <div></div><div></div><div></div><div></div><div></div><div></div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-01')">1</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-02')">2</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-03')">3</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-04')">4</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-05')">5</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-06')">6</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-07')">7</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-08')">8</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-09')">9</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-10')">10</div>
+                    <div class="calendar-day has-data" onclick="showDayDetail('2026-02-11')">11</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-12')">12</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-13')">13</div>
+                    <div class="calendar-day" onclick="showDayDetail('2026-02-14')">14</div>
+                </div>
+            </div>
+
+            <div id="dayDetail" class="glass-card p-6 hidden">
+                <h3 class="text-lg font-bold text-gray-800 mb-3">📊 詳細データ</h3>
+                <div id="dayDetailContent"></div>
+            </div>
+        </div>
+
+        <!-- 統計画面 -->
+        <div id="stats-tab" class="tab-content hidden">
+            <div class="glass-card p-6 mb-4">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📈 統計分析</h2>
+                
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">💰 売上内訳（円グラフ）</h3>
+                <div class="chart-container">
+                    <canvas id="salesBreakdownChart"></canvas>
+                </div>
+
+                <h3 class="text-lg font-semibold text-gray-700 mb-3 mt-6">📊 日別売上推移</h3>
+                <div class="chart-container">
+                    <canvas id="dailySalesChart"></canvas>
+                </div>
+
+                <h3 class="text-lg font-semibold text-gray-700 mb-3 mt-6">👥 客ファネル分析（円グラフ）</h3>
+                <div class="chart-container">
+                    <canvas id="customerFunnelChart"></canvas>
+                </div>
+
+                <h3 class="text-lg font-semibold text-gray-700 mb-3 mt-6">📅 曜日別平均時給</h3>
+                <div class="chart-container">
+                    <canvas id="weekdayChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
